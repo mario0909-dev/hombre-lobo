@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useInstall, useWakeLock, useGame, useSpeech, useTheme } from './ui/hooks'
-import { PlayersPanel, LogPanel } from './ui/components'
+import { CatalogScreen, PlayersPanel, LogPanel } from './ui/components'
 import { DawnScreen, DayScreen, GameOverScreen, HunterScreen } from './ui/DayScreens'
 import { NightScreen } from './ui/NightScreen'
 import { SetupScreen } from './ui/SetupScreen'
@@ -12,6 +12,7 @@ export default function App() {
   const speech = useSpeech()
   const installer = useInstall()
   const [showIosHint, setShowIosHint] = useState(false)
+  const [showCatalog, setShowCatalog] = useState(false)
   useWakeLock(game !== null && game.phase !== 'gameOver')
 
   const confirmQuit = () => {
@@ -39,6 +40,14 @@ export default function App() {
               Instalar
             </button>
           )}
+          <button
+            type="button"
+            className={`btn btn-ghost btn-small${showCatalog ? ' active' : ''}`}
+            onClick={() => setShowCatalog((v) => !v)}
+            aria-pressed={showCatalog}
+          >
+            🃏 Cartas
+          </button>
           {game && (
             <button type="button" className="btn btn-ghost btn-small" onClick={undo} disabled={!canUndo} aria-label="Deshacer el último paso">
               ↩ Deshacer
@@ -67,7 +76,13 @@ export default function App() {
         </div>
       </header>
 
-      <main className="main">
+      {showCatalog && (
+        <main className="main">
+          <CatalogScreen onClose={() => setShowCatalog(false)} />
+        </main>
+      )}
+      {/* Se oculta (sin desmontar) para no perder lo que se está configurando. */}
+      <main className="main" hidden={showCatalog}>
         {showIosHint && !game && (
           <p className="hint card">
             Para instalarla en iPhone o iPad: ábrela en <strong>Safari</strong>, toca <strong>Compartir</strong> (el cuadrado

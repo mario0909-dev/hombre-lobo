@@ -39,7 +39,7 @@ describe('guardado de la partida', () => {
 
   it('rechaza datos con otra versión o forma', () => {
     const s = base()
-    const wrongVersion = JSON.stringify({ present: { ...s, version: 2 }, past: [] })
+    const wrongVersion = JSON.stringify({ present: { ...s, version: 99 }, past: [] })
     expect(loadSaved(memory({ 'castronegro:partida': wrongVersion }))).toBeNull()
     const wrongRole = JSON.stringify({ present: { ...s, players: [{ ...s.players[0], roleId: 'dragon' }] }, past: [] })
     expect(loadSaved(memory({ 'castronegro:partida': wrongRole }))).toBeNull()
@@ -65,6 +65,15 @@ describe('guardado de la partida', () => {
     const s = playNight(game(['lobo', 'aldeano', 'aldeano', 'aldeano', 'cupido']), { cupido: ['p1', 'p2'], lobo: 'p3' })
     save({ version: 1, present: s, past: [] }, st)
     expect(loadSaved(st)?.present).toEqual(s)
+  })
+
+  it('pone al día una partida guardada con la versión 1', () => {
+    const s = base()
+    const v1 = { ...s, version: 1, rules: { ...s.rules, sheriff: undefined } } as Record<string, unknown>
+    for (const key of ['thiefCards', 'actorCards', 'elderHit', 'enchanted', 'sect', 'judge', 'sheriff']) delete v1[key]
+    const loaded = loadSaved(memory({ 'castronegro:partida': JSON.stringify({ present: v1, past: [v1] }) }))
+    expect(loaded?.present).toEqual(s)
+    expect(loaded?.past).toEqual([s])
   })
 
   it('borra la partida guardada', () => {

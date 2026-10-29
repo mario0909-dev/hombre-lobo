@@ -16,14 +16,20 @@ podrá usarse en modo cooperativo (cada jugador en su móvil), pero **ahora no s
 
 - `src/game/` · **reglas puras, sin React ni DOM**. Aquí vive toda la lógica.
   - `types.ts` tipos (`GameState`, `Player`, `Action`…)
-  - `roles.ts` roles definidos como **datos** (`RoleDef`): añadir un rol = añadir un objeto
+  - `roles.ts` personajes definidos como **datos** (`RoleDef`): básico + ampliaciones (31 cartas)
+  - `steps.ts` pasos de la noche como datos (orden, cuándo se activan, texto a leer)
   - `setup.ts` validación, reparto sugerido, barajado (único sitio con aleatoriedad, recibe `rng`) y `createGame`
-  - `night.ts` pasos de la noche y objetivos válidos
-  - `resolve.ts` muertes encadenadas (amantes, cazador) y condición de victoria
+  - `night.ts` helpers de jugadores (`isWolf`, vecinos, poder perdido…) y objetivos válidos
+  - `resolve.ts` muertes encadenadas (amantes, cazador, anciano, niño salvaje, caballero, alguacil) y victoria
   - `reducer.ts` `aplicar(estado, accion) => estado` (puro, lanza `GameRuleError` si la acción no es válida)
   - `view.ts` `vistaPara(estado, 'narrador' | idJugador)` oculta lo secreto
 - `src/storage/` · guardado en localStorage (versionado y validado) y pila de deshacer
 - `src/ui/` · pantallas y componentes React. La UI **solo** llama a `aplicar` y a los helpers de `game/`
+- `public/cartas/<id>.svg` · ilustraciones originales de cada carta, generadas con `node scripts/generar-cartas.mjs`
+  (añadir un rol = añadir también su figura en ese script)
+- PWA: `public/manifest.webmanifest`, iconos en `public/icons/`, service worker en `pwa/sw.js`
+  (plantilla; `vite build` genera `dist/sw.js` con la lista de archivos). Instalable solo servida por HTTPS.
+- El orden de la lista de jugadores es el orden en que están sentados (zorro, domador, caballero).
 - `prototipo/guia-castronegro.html` · beta original. **Referencia; no se toca.**
 
 ## Reglas de trabajo
@@ -48,9 +54,19 @@ Configurables en `HouseRules` (pantalla de configuración):
 - Empate en la votación: **no muere nadie**
 - Cupido solo actúa la primera noche. Si muere un amante, muere el otro. El cazador dispara al morir (de noche, por voto o de pena).
 - Victoria: aldeanos si no quedan lobos; lobos si igualan o superan al resto; amantes si son los dos últimos vivos y de bandos distintos.
+- Alguacil: opcional, **desactivado** por defecto.
+
+Decisiones tomadas al añadir las ampliaciones (revisables con el usuario):
+
+- Tonto del pueblo: se salva la primera vez que lo votan; la segunda muere.
+- Ángel: gana si muere en la ronda 1 (noche 1 o primera votación), por cualquier causa salvo el narrador.
+- Lobo blanco: actúa en noches pares; mientras vive, los lobos no ganan por igualar en número.
+- Caballero: el lobo herido es el primero vivo **después** de él en la lista; muere la noche siguiente.
+- Comediante: sus 3 cartas son las primeras libres de [Vidente, Guardián, Zorro, Cuervo, Gitana].
+- Infección, sirvienta, niño salvaje y perro lobo pasan al jugador a los lobos con `player.wolf`; la vidente sigue viendo la carta original.
 
 ## Pendiente (hoja de ruta)
 
-- PWA / modo sin conexión · más roles (Ladrón, Niña con espionaje, Alguacil, Chivo expiatorio…)
+- Niña con espionaje · eventos de Nueva Luna
 - Temporizador de debate · historial de partidas · varios idiomas
 - Modo cooperativo: anfitrión como autoridad + servicio en tiempo real (decidir entonces)

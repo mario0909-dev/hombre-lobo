@@ -1,98 +1,287 @@
-import type { GameState, NightStepId, RoleId, Team } from './types'
-
-export interface ScriptContext {
-  state: GameState
-  /** Nombre de la víctima de los lobos esta noche, si la hay. */
-  victimName: string | null
-  /** Nombres de los amantes, si Cupido ya los ha elegido. */
-  loverNames: [string, string] | null
-}
+import type { RoleId, Team } from './types'
 
 export interface RoleDef {
   id: RoleId
   name: string
   team: Team
-  /** Orden en que despierta de noche; `null` = no despierta. */
-  nightOrder: number | null
-  firstNightOnly?: boolean
+  edition: 'basico' | 'ampliacion'
   description: string
-  script?: (ctx: ScriptContext) => string
+  /** Máximo de cartas iguales; `null` = sin límite (lobos y aldeanos). */
+  max: number | null
+  /** Si existe, solo se puede jugar con exactamente este número de cartas (hermanas, hermanos). */
+  exactly?: number
+  /** Aldeano con poder: lo pierde si el pueblo mata al anciano. */
+  villagePower?: boolean
 }
 
 export const ROLES: RoleDef[] = [
+  // — Juego básico —
   {
     id: 'aldeano',
     name: 'Aldeano',
     team: 'villa',
-    nightOrder: null,
+    edition: 'basico',
+    max: null,
     description: 'Sin poder especial. Duerme toda la noche y vota de día.',
   },
   {
     id: 'lobo',
     name: 'Hombre lobo',
     team: 'lobos',
-    nightOrder: 30,
+    edition: 'basico',
+    max: null,
     description: 'Cada noche los lobos eligen a una víctima.',
-    script: () =>
-      'Hombres lobo, despertad. Reconoceos y elegid en silencio a vuestra víctima. Hombres lobo, dormíos.',
   },
   {
     id: 'vidente',
     name: 'Vidente',
     team: 'villa',
-    nightOrder: 40,
+    edition: 'basico',
+    max: 1,
+    villagePower: true,
     description: 'Cada noche descubre la identidad de un jugador.',
-    script: () =>
-      'Vidente, despierta. Señala a un jugador para descubrir su identidad. Vidente, duérmete.',
   },
   {
     id: 'bruja',
     name: 'Bruja',
     team: 'villa',
-    nightOrder: 50,
+    edition: 'basico',
+    max: 1,
+    villagePower: true,
     description: 'Tiene una poción de vida y otra de muerte, de un solo uso cada una.',
-    script: ({ victimName, state }) => {
-      const victim = victimName
-        ? `Esta noche la víctima de los lobos es ${victimName}.`
-        : 'Esta noche los lobos no han elegido a nadie.'
-      const life = state.witch.lifeUsed ? 'Ya has gastado tu poción de vida.' : 'Aún tienes tu poción de vida.'
-      const death = state.witch.deathUsed
-        ? 'Ya has gastado tu poción de muerte.'
-        : 'Aún tienes tu poción de muerte.'
-      return `Bruja, despierta. ${victim} ${life} ${death} ¿Quieres usar alguna? Bruja, duérmete.`
-    },
   },
   {
     id: 'cazador',
     name: 'Cazador',
     team: 'villa',
-    nightOrder: null,
+    edition: 'basico',
+    max: 1,
+    villagePower: true,
     description: 'Si muere, por lo que sea, dispara y se lleva a otro jugador.',
   },
   {
     id: 'cupido',
     name: 'Cupido',
     team: 'villa',
-    nightOrder: 10,
-    firstNightOnly: true,
+    edition: 'basico',
+    max: 1,
     description: 'La primera noche enamora a dos jugadores: si uno muere, muere el otro.',
-    script: () =>
-      'Cupido, despierta. Señala a los dos jugadores que quedarán enamorados. Cupido, duérmete.',
-  },
-  {
-    id: 'guardian',
-    name: 'Guardián',
-    team: 'villa',
-    nightOrder: 20,
-    description: 'Cada noche protege a un jugador del ataque de los lobos.',
-    script: () => 'Guardián, despierta. Elige a quién proteger esta noche. Guardián, duérmete.',
   },
   {
     id: 'nina',
     name: 'Niña',
     team: 'villa',
-    nightOrder: null,
+    edition: 'basico',
+    max: 1,
+    villagePower: true,
     description: 'No tiene turno propio; puede intentar espiar a los lobos según tu variante.',
+  },
+  {
+    id: 'ladron',
+    name: 'Ladrón',
+    team: 'villa',
+    edition: 'basico',
+    max: 1,
+    description:
+      'Se reparten dos cartas de más. La primera noche puede cambiar la suya por una de ellas; si las dos son de lobo, debe coger una.',
+  },
+
+  // — Ampliaciones —
+  {
+    id: 'guardian',
+    name: 'Guardián',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description: 'Cada noche protege a un jugador del ataque de los lobos.',
+  },
+  {
+    id: 'anciano',
+    name: 'Anciano',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    description:
+      'Sobrevive al primer ataque de los lobos. Si lo mata el pueblo (votación, cazador o bruja), los aldeanos pierden sus poderes.',
+  },
+  {
+    id: 'chivo',
+    name: 'Chivo expiatorio',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Si la votación acaba en empate, muere él en lugar de nadie.',
+  },
+  {
+    id: 'tonto',
+    name: 'Tonto del pueblo',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'La primera vez que el pueblo lo elimina se descubre y se salva, pero ya no puede votar.',
+  },
+  {
+    id: 'hermana',
+    name: 'Hermana',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 2,
+    exactly: 2,
+    description: 'Las dos hermanas se reconocen la primera noche y pueden ponerse de acuerdo con gestos.',
+  },
+  {
+    id: 'hermano',
+    name: 'Hermano',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 3,
+    exactly: 3,
+    description: 'Los tres hermanos se reconocen la primera noche y pueden ponerse de acuerdo con gestos.',
+  },
+  {
+    id: 'aldeanoAldeano',
+    name: 'Aldeano-aldeano',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Aldeano por las dos caras de la carta: todos saben que es inocente.',
+  },
+  {
+    id: 'caballero',
+    name: 'Caballero de la espada oxidada',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description: 'Si lo matan los lobos, el primer lobo que se siente después de él muere de tétanos la noche siguiente.',
+  },
+  {
+    id: 'domador',
+    name: 'Domador de osos',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description: 'Cada mañana el oso gruñe si alguno de sus dos vecinos vivos es un lobo.',
+  },
+  {
+    id: 'zorro',
+    name: 'Zorro',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description:
+      'Cada noche olfatea a un jugador y a sus dos vecinos. Si ninguno es lobo, pierde el olfato para siempre.',
+  },
+  {
+    id: 'juez',
+    name: 'Juez tartamudo',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description: 'Una vez por partida puede hacer una señal para que haya una segunda votación ese mismo día.',
+  },
+  {
+    id: 'sirvienta',
+    name: 'Sirvienta abnegada',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Cuando el pueblo elimina a alguien, puede revelarse y quedarse con su carta.',
+  },
+  {
+    id: 'comediante',
+    name: 'Comediante',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description: 'Tiene tres cartas de personaje boca arriba. Cada noche puede usar una (y se descarta).',
+  },
+  {
+    id: 'cuervo',
+    name: 'Cuervo',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description: 'Cada noche puede señalar a un jugador, que empezará la votación con dos votos en contra.',
+  },
+  {
+    id: 'gitana',
+    name: 'Gitana',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    villagePower: true,
+    description: 'Cada noche puede elegir a un jugador que por la mañana hará una pregunta a los espíritus (los muertos).',
+  },
+  {
+    id: 'ninoSalvaje',
+    name: 'Niño salvaje',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'La primera noche elige un modelo. Si su modelo muere, se convierte en hombre lobo.',
+  },
+  {
+    id: 'perroLobo',
+    name: 'Perro lobo',
+    team: 'villa',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'La primera noche decide si es un aldeano o un hombre lobo.',
+  },
+  {
+    id: 'padreLobos',
+    name: 'Padre de los lobos',
+    team: 'lobos',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Hombre lobo. Una vez por partida puede infectar a la víctima, que se convierte en lobo en secreto.',
+  },
+  {
+    id: 'loboFeroz',
+    name: 'Gran lobo feroz',
+    team: 'lobos',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Hombre lobo. Mientras no haya muerto ningún lobo, cada noche devora a una segunda víctima.',
+  },
+  {
+    id: 'loboBlanco',
+    name: 'Lobo blanco',
+    team: 'solitario',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Caza con los lobos, pero una noche de cada dos puede matar a uno de ellos. Gana si queda solo.',
+  },
+  {
+    id: 'flautista',
+    name: 'Flautista',
+    team: 'solitario',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Cada noche encanta a dos jugadores. Gana si todos los demás vivos están encantados.',
+  },
+  {
+    id: 'angel',
+    name: 'Ángel',
+    team: 'solitario',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'Gana él solo si muere en la primera noche o en la primera votación. Si no, es un aldeano más.',
+  },
+  {
+    id: 'sectario',
+    name: 'Sectario abominable',
+    team: 'solitario',
+    edition: 'ampliacion',
+    max: 1,
+    description: 'El pueblo se divide en dos grupos. Gana si mueren todos los del grupo contrario al suyo.',
   },
 ]
 
@@ -104,31 +293,5 @@ export function getRole(id: RoleId): RoleDef {
   return role
 }
 
-/** Textos de los pasos que no pertenecen a un rol. */
-export const STEP_TITLES: Record<NightStepId, string> = {
-  inicio: 'Cae la noche',
-  cupido: 'Cupido',
-  amantes: 'Los enamorados',
-  guardian: 'Guardián',
-  lobo: 'Hombres lobo',
-  vidente: 'Vidente',
-  bruja: 'Bruja',
-}
-
-export function stepScript(step: NightStepId, ctx: ScriptContext): string {
-  switch (step) {
-    case 'inicio':
-      return ctx.state.round === 1
-        ? 'El pueblo de Castronegro se va a dormir. Todos cerrad los ojos y silencio total.'
-        : 'Vuelve a caer la noche sobre Castronegro. Todos cerrad los ojos.'
-    case 'amantes': {
-      const names = ctx.loverNames
-      const who = names ? `${names[0]} y ${names[1]}` : 'los dos enamorados'
-      return `Enamorados, despertad (${who}). Mirad quién es vuestra pareja. Enamorados, dormíos.`
-    }
-    default: {
-      const text = getRole(step).script?.(ctx)
-      return text ?? ''
-    }
-  }
-}
+/** Cartas que el comediante puede tener (se eligen entre las que no están en juego). */
+export const ACTOR_ROLES: RoleId[] = ['vidente', 'guardian', 'zorro', 'cuervo', 'gitana']

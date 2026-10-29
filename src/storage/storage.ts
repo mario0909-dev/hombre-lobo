@@ -1,4 +1,4 @@
-import { isGameState } from '../game/validate'
+import { isGameState, upgradeState } from '../game/validate'
 import type { GameState } from '../game/types'
 
 const KEY = 'castronegro:partida'
@@ -33,9 +33,10 @@ export function loadSaved(storage: StorageLike | null = defaultStorage()): Saved
     if (!raw) return null
     const data: unknown = JSON.parse(raw)
     if (typeof data !== 'object' || data === null) return null
-    const { present, past } = data as { present?: unknown; past?: unknown }
+    const saved = data as { present?: unknown; past?: unknown }
+    const present = upgradeState(saved.present)
     if (!isGameState(present)) return null
-    const validPast = Array.isArray(past) ? past.filter(isGameState) : []
+    const validPast = Array.isArray(saved.past) ? saved.past.map(upgradeState).filter(isGameState) : []
     return { version: 1, present, past: validPast.slice(-MAX_UNDO) }
   } catch {
     return null

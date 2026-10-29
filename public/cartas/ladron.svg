@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 280" role="img" aria-label="Ladrón">
+<defs>
+<linearGradient id="cielo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2a3a5c"/><stop offset="1" stop-color="#0c111d"/></linearGradient>
+<radialGradient id="luna" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#ffffff" stop-opacity=".35"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></radialGradient>
+<radialGradient id="orb" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#e7f6ff"/><stop offset=".5" stop-color="#8fb8ff"/><stop offset="1" stop-color="#4b3a9a"/></radialGradient>
+<clipPath id="marco"><rect width="200" height="280" rx="14"/></clipPath>
+</defs>
+<g clip-path="url(#marco)">
+<rect width="200" height="280" fill="url(#cielo)"/>
+<circle cx="28" cy="34" r="1.4" fill="#f1ede2" opacity=".8"/><circle cx="52" cy="22" r="1" fill="#f1ede2" opacity=".8"/><circle cx="160" cy="30" r="1.2" fill="#f1ede2" opacity=".8"/><circle cx="176" cy="64" r="1" fill="#f1ede2" opacity=".8"/><circle cx="24" cy="80" r="1" fill="#f1ede2" opacity=".8"/><circle cx="180" cy="118" r="1.3" fill="#f1ede2" opacity=".8"/><circle cx="38" cy="128" r="0.9" fill="#f1ede2" opacity=".8"/><circle cx="150" cy="18" r="0.8" fill="#f1ede2" opacity=".8"/>
+<circle cx="100" cy="122" r="74" fill="#ecdcaa"/><circle cx="100" cy="122" r="74" fill="url(#luna)"/>
+<g fill="#0c111d" opacity=".12"><circle cx="70" cy="98" r="10"/><circle cx="128" cy="150" r="14"/><circle cx="134" cy="92" r="6"/></g>
+<path fill="#0f1118" d="M0 238 Q40 226 80 236 T160 232 T200 236 V280 H0 Z"/>
+<g transform="translate(100 238)" fill="#0f1118"><circle cx="0" cy="-105" r="15"/><path d="M-8 -92 Q0 -86 8 -92 L26 -78 Q32 -74 32 -60 L36 0 L-36 0 L-32 -60 Q-32 -74 -26 -78 Z"/><path d="M-17 -116 Q0 -136 17 -116 L24 -114 L-24 -114 Z"/><rect x="-16" y="-111" width="32" height="8" rx="4" fill="#0f1118" stroke="#f1ede2" stroke-width="1.5"/><circle cx="-6" cy="-107" r="2" fill="#f1ede2"/><circle cx="6" cy="-107" r="2" fill="#f1ede2"/><g transform="translate(46 -86)" stroke="#0f1118" stroke-width="2"><rect x="-10" y="-22" width="22" height="32" rx="3" fill="#f1ede2" transform="rotate(-18)"/><rect x="-6" y="-22" width="22" height="32" rx="3" fill="#e9c75b" transform="rotate(12)"/></g></g>
+</g>
+<rect x="4" y="4" width="192" height="272" rx="11" fill="none" stroke="#e9d58b" stroke-width="3"/>
+<rect x="10" y="10" width="180" height="260" rx="7" fill="none" stroke="#e9d58b" stroke-opacity=".35" stroke-width="1.2"/>
+</svg>

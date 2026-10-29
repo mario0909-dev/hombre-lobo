@@ -3,54 +3,96 @@ import {
   aplicar,
   createGame,
   currentStep,
-  dealRoles,
+  dealCards,
   DEFAULT_RULES,
   GameRuleError,
+  ROLES,
+  shuffle,
   suggestRoleCounts,
+  validateSetup,
   validTargets,
 } from './index'
-import type { Action, GameState, HouseRules } from './types'
+import type { Action, GameState, HouseRules, RoleCounts, RoleId } from './types'
 import { seeded } from './testUtils'
 
 const pick = <T,>(items: T[], rng: () => number): T => items[Math.floor(rng() * items.length)]
+const maybe = (rng: () => number, p: number) => rng() < p
 
 /** Un "narrador" que juega al azar con acciones válidas (y alguna inválida, que se ignora). */
 function botActions(s: GameState, rng: () => number): Action[] {
   const alive = s.players.filter((p) => p.alive)
+  const orNull = (ids: { id: string }[], p = 0.8) => (ids.length && maybe(rng, p) ? pick(ids, rng).id : null)
   switch (s.phase) {
     case 'night': {
       const step = currentStep(s)
       const next: Action = { type: 'SIGUIENTE_PASO' }
-      if (step === 'cupido') {
-        const [a, b] = [pick(alive, rng), pick(alive, rng)]
-        return [{ type: 'CUPIDO_ELIGE', a: a.id, b: b.id }, next]
+      switch (step) {
+        case 'ladron':
+          return [{ type: 'LADRON_ELIGE', card: maybe(rng, 0.3) ? null : pick([0, 1], rng) }, { type: 'LADRON_ELIGE', card: 0 }, next]
+        case 'comediante':
+          return [{ type: 'COMEDIANTE_ELIGE', role: maybe(rng, 0.7) ? pick(s.actorCards, rng) : null }, next]
+        case 'perroLobo':
+          return [{ type: 'PERRO_LOBO_ELIGE', side: pick(['villa', 'lobos'] as const, rng) }, next]
+        case 'cupido': {
+          const [a, b] = [pick(alive, rng), pick(alive, rng)]
+          return [{ type: 'CUPIDO_ELIGE', a: a.id, b: b.id }, { type: 'CUPIDO_ELIGE', a: alive[0].id, b: alive[1].id }, next]
+        }
+        case 'ninoSalvaje':
+          return [{ type: 'NINO_SALVAJE_ELIGE', target: pick(validTargets(s, 'ninoSalvaje'), rng).id }, next]
+        case 'sectario':
+          return [{ type: 'SECTARIO_GRUPO', ids: alive.filter(() => maybe(rng, 0.4)).map((p) => p.id) }, { type: 'SECTARIO_GRUPO', ids: [] }, next]
+        case 'guardian':
+          return [{ type: 'GUARDIAN_ELIGE', target: orNull(validTargets(s, 'guardian')) }, next]
+        case 'lobo':
+          return [
+            { type: 'LOBOS_ELIGEN', target: orNull(alive, 0.9) },
+            { type: 'LOBOS_INFECTAN', infect: maybe(rng, 0.3) },
+            next,
+          ]
+        case 'loboFeroz':
+          return [{ type: 'LOBO_FEROZ_ELIGE', target: orNull(validTargets(s, 'loboFeroz')) }, next]
+        case 'loboBlanco':
+          return [{ type: 'LOBO_BLANCO_ELIGE', target: orNull(validTargets(s, 'loboBlanco'), 0.5) }, next]
+        case 'vidente': {
+          const t = validTargets(s, 'vidente')
+          return [...(t.length ? [{ type: 'VIDENTE_ELIGE', target: pick(t, rng).id } as Action] : []), next]
+        }
+        case 'zorro':
+          return [{ type: 'ZORRO_ELIGE', target: orNull(alive) }, next]
+        case 'bruja': {
+          const acts: Action[] = []
+          if (maybe(rng, 0.5)) acts.push({ type: 'BRUJA_SALVA', save: true })
+          if (maybe(rng, 0.5)) acts.push({ type: 'BRUJA_ENVENENA', target: pick(alive, rng).id })
+          return [...acts, next]
+        }
+        case 'flautista': {
+          const t = shuffle(validTargets(s, 'flautista'), rng)
+          return [...(t.length ? [{ type: 'FLAUTISTA_ELIGE', targets: t.slice(0, 2).map((p) => p.id) } as Action] : []), next]
+        }
+        case 'cuervo':
+          return [{ type: 'CUERVO_ELIGE', target: orNull(alive, 0.6) }, next]
+        case 'gitana':
+          return [{ type: 'GITANA_ELIGE', target: orNull(alive, 0.6) }, next]
+        default:
+          return [next]
       }
-      if (step === 'guardian') {
-        const t = validTargets(s, 'guardian')
-        return [{ type: 'GUARDIAN_ELIGE', target: t.length && rng() < 0.8 ? pick(t, rng).id : null }, next]
-      }
-      if (step === 'lobo') return [{ type: 'LOBOS_ELIGEN', target: rng() < 0.1 ? null : pick(alive, rng).id }, next]
-      if (step === 'vidente') {
-        const t = validTargets(s, 'vidente')
-        return [...(t.length ? [{ type: 'VIDENTE_ELIGE', target: pick(t, rng).id } as Action] : []), next]
-      }
-      if (step === 'bruja') {
-        const acts: Action[] = []
-        if (rng() < 0.5) acts.push({ type: 'BRUJA_SALVA', save: true })
-        if (rng() < 0.5) acts.push({ type: 'BRUJA_ENVENENA', target: pick(alive, rng).id })
-        return [...acts, next]
-      }
-      return [next]
     }
     case 'dawn':
-      return [{ type: 'CONTINUAR' }]
+      return [
+        ...(s.rules.sheriff && !s.sheriff ? [{ type: 'ALGUACIL_NOMBRA', playerId: pick(alive, rng).id } as Action] : []),
+        { type: 'CONTINUAR' },
+      ]
     case 'hunter': {
       const shooter = s.pendingHunters[0]
       const targets = alive.filter((p) => p.id !== shooter)
-      return [{ type: 'CAZADOR_DISPARA', target: targets.length && rng() < 0.8 ? pick(targets, rng).id : null }]
+      return [{ type: 'CAZADOR_DISPARA', target: orNull(targets) }]
     }
     case 'day':
-      return [{ type: 'VOTAR_LINCHAMIENTO', target: rng() < 0.1 ? null : pick(alive, rng).id }]
+      return [
+        ...(maybe(rng, 0.2) ? [{ type: 'JUEZ_SEGUNDA_VOTACION' } as Action] : []),
+        { type: 'VOTAR_LINCHAMIENTO', target: orNull(alive, 0.9), servant: maybe(rng, 0.2) },
+        { type: 'VOTAR_LINCHAMIENTO', target: orNull(alive, 0.9) },
+      ]
     default:
       return []
   }
@@ -81,25 +123,40 @@ function checkInvariants(s: GameState, playerCount: number) {
     expect(a.alive).toBe(b.alive)
   }
   if (s.phase !== 'hunter' && s.phase !== 'dawn') expect(s.pendingHunters).toEqual([])
+  if (s.phase === 'night') expect(s.night.steps[0]).toBe('inicio')
   expect(JSON.parse(JSON.stringify(s))).toEqual(s)
+}
+
+/** Reparto recomendado más unos cuantos personajes de las ampliaciones al azar (si caben). */
+function randomCounts(n: number, rng: () => number): RoleCounts {
+  const counts: RoleCounts = { ...suggestRoleCounts(n) }
+  const extras = shuffle(ROLES.filter((r) => r.id !== 'aldeano' && r.id !== 'lobo' && !counts[r.id]), rng)
+  for (const role of extras.slice(0, Math.floor(rng() * 6))) {
+    const tryCounts = { ...counts, [role.id]: role.exactly ?? 1 }
+    if (validateSetup(Array.from({ length: n }, (_, i) => `J${i}`), tryCounts).length === 0) Object.assign(counts, tryCounts)
+  }
+  return counts
 }
 
 describe('partidas aleatorias (fuzz)', () => {
   const ruleSets: HouseRules[] = [
     DEFAULT_RULES,
-    { ...DEFAULT_RULES, doubleSave: 'dies', guardianCanRepeat: true },
+    { ...DEFAULT_RULES, doubleSave: 'dies', guardianCanRepeat: true, sheriff: true },
     { ...DEFAULT_RULES, guardianCanSelfProtect: false, witchCanSelfSave: false, witchBothPotionsSameNight: false },
   ]
 
-  it('300 partidas terminan siempre y cumplen los invariantes', () => {
-    let finished = 0
-    for (let seed = 1; seed <= 300; seed++) {
+  it('500 partidas con todo tipo de personajes terminan siempre y cumplen los invariantes', () => {
+    const winners = new Set<string>()
+    const seen = new Set<RoleId>()
+    for (let seed = 1; seed <= 500; seed++) {
       const rng = seeded(seed)
       const n = 5 + Math.floor(rng() * 16)
-      const roles = dealRoles(n, suggestRoleCounts(n), rng)
+      const { roles, thiefCards } = dealCards(n, randomCounts(n, rng), rng)
+      roles.forEach((r) => seen.add(r))
       let s = createGame(
         roles.map((roleId, i) => ({ name: `J${i + 1}`, roleId })),
         ruleSets[seed % ruleSets.length],
+        thiefCards,
       )
       let guard = 0
       while (s.phase !== 'gameOver') {
@@ -107,9 +164,10 @@ describe('partidas aleatorias (fuzz)', () => {
         s = step(s, botActions(s, rng))
         checkInvariants(s, n)
       }
-      finished++
-      expect(['villa', 'lobos', 'amantes', 'nadie']).toContain(s.winner)
+      winners.add(s.winner as string)
     }
-    expect(finished).toBe(300)
+    // Se han probado todos los personajes y varios finales distintos.
+    expect([...seen].sort()).toEqual(ROLES.map((r) => r.id).sort())
+    expect(winners.size).toBeGreaterThanOrEqual(5)
   })
 })

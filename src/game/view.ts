@@ -1,4 +1,4 @@
-import { getRole } from './roles'
+import { isWolf } from './night'
 import type { Death, GameState, Phase, RoleId, Winner } from './types'
 
 export interface PublicPlayer {
@@ -45,15 +45,11 @@ export function vistaPara(state: GameState, viewer: 'narrador' | string): StateV
 
   const me = state.players.find((p) => p.id === viewer)
   if (!me) throw new Error(`Jugador desconocido: ${viewer}`)
-  const meIsWolf = getRole(me.roleId).team === 'lobos'
+  const meIsWolf = isWolf(me)
   const over = state.phase === 'gameOver'
 
   const players = state.players.map((p) => {
-    const visible =
-      over ||
-      !p.alive ||
-      p.id === me.id ||
-      (meIsWolf && getRole(p.roleId).team === 'lobos')
+    const visible = over || !p.alive || p.id === me.id || (meIsWolf && isWolf(p))
     return { id: p.id, name: p.name, alive: p.alive, ...(visible ? { roleId: p.roleId } : {}) }
   })
 
