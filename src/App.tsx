@@ -1,122 +1,114 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import { useWakeLock, useGame, useSpeech, useTheme } from './ui/hooks'
+import { PlayersPanel, LogPanel } from './ui/components'
+import { DawnScreen, DayScreen, GameOverScreen, HunterScreen } from './ui/DayScreens'
+import { NightScreen } from './ui/NightScreen'
+import { SetupScreen } from './ui/SetupScreen'
+import type { GameState } from './game'
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const { game, resumable, canUndo, error, dispatch, undo, start, resume, quit } = useGame()
+  const { theme, toggle: toggleTheme } = useTheme()
+  const speech = useSpeech()
+  useWakeLock(game !== null && game.phase !== 'gameOver')
+
+  const confirmQuit = () => {
+    if (window.confirm('¿Abandonar la partida actual? Se perderá el progreso.')) quit()
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app">
+      <header className="top">
+        <div className="brand">
+          <span className="logo" aria-hidden="true">🌙</span>
+          <div>
+            <h1>Castronegro</h1>
+            <p className="muted small">Asistente del narrador</p>
+          </div>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
+        <div className="top-actions">
+          {game && (
+            <button type="button" className="btn btn-ghost btn-small" onClick={undo} disabled={!canUndo} aria-label="Deshacer el último paso">
+              ↩ Deshacer
+            </button>
+          )}
+          {speech.supported && (
+            <button
+              type="button"
+              className={`btn btn-ghost btn-small${speech.enabled ? ' active' : ''}`}
+              onClick={speech.toggle}
+              aria-pressed={speech.enabled}
+              aria-label="Leer el guion en voz alta automáticamente"
+              title="Lectura automática en voz alta"
+            >
+              🔊
+            </button>
+          )}
+          <button type="button" className="btn btn-ghost btn-small" onClick={toggleTheme} aria-label="Cambiar tema claro u oscuro">
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
+          {game && (
+            <button type="button" className="btn btn-ghost btn-small" onClick={confirmQuit}>
+              Salir
+            </button>
+          )}
+        </div>
+      </header>
+
+      <main className="main">
+        {error && (
+          <p className="toast" role="alert">
+            {error}
           </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+        )}
 
-      <div className="ticks"></div>
+        {!game && resumable && <ResumeCard saved={resumable.present} onResume={resume} onDiscard={quit} />}
+        {!game && !resumable && <SetupScreen onStart={start} />}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+        {game?.phase === 'night' && (
+          <>
+            <NightScreen state={game} dispatch={dispatch} speech={speech} />
+            <PlayersPanel state={game} editable={false} onKill={() => {}} onRevive={() => {}} />
+            <LogPanel state={game} />
+          </>
+        )}
+        {game?.phase === 'dawn' && <DawnScreen state={game} dispatch={dispatch} speech={speech} />}
+        {game?.phase === 'hunter' && <HunterScreen state={game} dispatch={dispatch} speech={speech} />}
+        {game?.phase === 'day' && <DayScreen state={game} dispatch={dispatch} speech={speech} />}
+        {game?.phase === 'gameOver' && <GameOverScreen state={game} onNewGame={quit} speech={speech} />}
+      </main>
+    </div>
   )
 }
 
-export default App
+function ResumeCard({ saved, onResume, onDiscard }: { saved: GameState; onResume: () => void; onDiscard: () => void }) {
+  const alive = saved.players.filter((p) => p.alive).length
+  const phase = {
+    night: `noche ${saved.round}`,
+    dawn: `amanecer de la noche ${saved.round}`,
+    hunter: 'disparo del cazador',
+    day: `día ${saved.round}`,
+    gameOver: 'partida terminada',
+  }[saved.phase]
+  return (
+    <section className="card">
+      <h2>Tienes una partida a medias</h2>
+      <p className="muted">
+        {saved.players.length} jugadores, {alive} vivos · {phase}
+      </p>
+      <div className="stack">
+        <button type="button" className="btn btn-primary btn-big" onClick={onResume}>
+          Continuar partida
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={() => {
+            if (window.confirm('¿Empezar una partida nueva? Se perderá la que tienes guardada.')) onDiscard()
+          }}
+        >
+          Nueva partida
+        </button>
+      </div>
+    </section>
+  )
+}
