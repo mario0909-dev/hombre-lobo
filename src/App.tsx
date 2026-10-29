@@ -1,4 +1,5 @@
-import { useWakeLock, useGame, useSpeech, useTheme } from './ui/hooks'
+import { useState } from 'react'
+import { useInstall, useWakeLock, useGame, useSpeech, useTheme } from './ui/hooks'
 import { PlayersPanel, LogPanel } from './ui/components'
 import { DawnScreen, DayScreen, GameOverScreen, HunterScreen } from './ui/DayScreens'
 import { NightScreen } from './ui/NightScreen'
@@ -9,6 +10,8 @@ export default function App() {
   const { game, resumable, canUndo, error, dispatch, undo, start, resume, quit } = useGame()
   const { theme, toggle: toggleTheme } = useTheme()
   const speech = useSpeech()
+  const installer = useInstall()
+  const [showIosHint, setShowIosHint] = useState(false)
   useWakeLock(game !== null && game.phase !== 'gameOver')
 
   const confirmQuit = () => {
@@ -26,6 +29,16 @@ export default function App() {
           </div>
         </div>
         <div className="top-actions">
+          {!game && installer.canPrompt && (
+            <button type="button" className="btn btn-primary btn-small" onClick={() => void installer.install()}>
+              Instalar
+            </button>
+          )}
+          {!game && !installer.canPrompt && installer.iosHint && (
+            <button type="button" className="btn btn-ghost btn-small" onClick={() => setShowIosHint((v) => !v)} aria-expanded={showIosHint}>
+              Instalar
+            </button>
+          )}
           {game && (
             <button type="button" className="btn btn-ghost btn-small" onClick={undo} disabled={!canUndo} aria-label="Deshacer el último paso">
               ↩ Deshacer
@@ -55,6 +68,12 @@ export default function App() {
       </header>
 
       <main className="main">
+        {showIosHint && !game && (
+          <p className="hint card">
+            Para instalarla en iPhone o iPad: ábrela en <strong>Safari</strong>, toca <strong>Compartir</strong> (el cuadrado
+            con la flecha) y elige <strong>«Añadir a pantalla de inicio»</strong>.
+          </p>
+        )}
         {error && (
           <p className="toast" role="alert">
             {error}

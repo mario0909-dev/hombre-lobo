@@ -103,6 +103,54 @@ export function useSpeech() {
   return { supported, enabled, toggle, speak }
 }
 
+/** Evento de Chrome/Android para instalar la app (no está en los tipos del DOM). */
+interface BeforeInstallPromptEvent extends Event {
+  prompt(): Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
+}
+
+/**
+ * Instalación como app. En Chrome/Android hay diálogo propio (`canPrompt`); en iPhone/iPad
+ * solo se puede desde Safari con «Compartir → Añadir a pantalla de inicio» (`iosHint`).
+ */
+export function useInstall() {
+  const [promptEvent, setPromptEvent] = useState<BeforeInstallPromptEvent | null>(null)
+  const [installed, setInstalled] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      (window.matchMedia('(display-mode: standalone)').matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true),
+  )
+
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault()
+      setPromptEvent(e as BeforeInstallPromptEvent)
+    }
+    const onInstalled = () => {
+      setInstalled(true)
+      setPromptEvent(null)
+    }
+    window.addEventListener('beforeinstallprompt', onPrompt)
+    window.addEventListener('appinstalled', onInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt)
+      window.removeEventListener('appinstalled', onInstalled)
+    }
+  }, [])
+
+  const install = useCallback(async () => {
+    if (!promptEvent) return
+    await promptEvent.prompt()
+    const { outcome } = await promptEvent.userChoice
+    if (outcome === 'accepted') setInstalled(true)
+    setPromptEvent(null)
+  }, [promptEvent])
+
+  const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent)
+  return { canPrompt: !installed && promptEvent !== null, iosHint: !installed && isIos, install }
+}
+
 /** Mantiene la pantalla encendida mientras `active` sea true (si el navegador lo permite). */
 export function useWakeLock(active: boolean) {
   const sentinel = useRef<WakeLockSentinel | null>(null)

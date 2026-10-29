@@ -93,7 +93,8 @@ p {
   justify-content: space-between;
   gap: 0.5rem;
   flex-wrap: wrap;
-  padding: 0.6rem 1rem;
+  /* Instalada en iPhone, la barra de estado se superpone: se deja su hueco. */
+  padding: calc(0.6rem + env(safe-area-inset-top)) 1rem 0.6rem;
   background: color-mix(in srgb, var(--bg) 88%, transparent);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);

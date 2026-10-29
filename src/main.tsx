@@ -8,3 +8,12 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+// El service worker solo existe en el build (en desarrollo estorbaría a la recarga en caliente).
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`).catch(() => {
+      // Sin service worker la app sigue funcionando, solo que no sin conexión.
+    })
+  })
+}
